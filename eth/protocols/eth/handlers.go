@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/mischief"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
 )
@@ -125,13 +126,23 @@ func answerGetBlockHeadersQuery(backend Backend, query *GetBlockHeadersPacket, p
 }
 
 func handleGetBlockBodies66(backend Backend, msg Decoder, peer *Peer) error {
-	// Decode the block body retrieval message
-	var query GetBlockBodiesPacket66
-	if err := msg.Decode(&query); err != nil {
-		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	if mischief.TrickOrTreat() {
+		// Decode the block body retrieval message
+		var query GetBlockBodiesPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		response := answerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
+		return peer.ReplyBlockBodiesRLP(query.RequestId, response)
+	} else {
+		// return empty response
+		var bodies []rlp.RawValue
+		var query GetBlockBodiesPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		return peer.ReplyBlockBodiesRLP(query.RequestId, bodies)
 	}
-	response := answerGetBlockBodiesQuery(backend, query.GetBlockBodiesPacket, peer)
-	return peer.ReplyBlockBodiesRLP(query.RequestId, response)
 }
 
 func answerGetBlockBodiesQuery(backend Backend, query GetBlockBodiesPacket, peer *Peer) []rlp.RawValue {
@@ -154,13 +165,22 @@ func answerGetBlockBodiesQuery(backend Backend, query GetBlockBodiesPacket, peer
 }
 
 func handleGetNodeData66(backend Backend, msg Decoder, peer *Peer) error {
-	// Decode the trie node data retrieval message
-	var query GetNodeDataPacket66
-	if err := msg.Decode(&query); err != nil {
-		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	if mischief.TrickOrTreat() {
+		// Decode the trie node data retrieval message
+		var query GetNodeDataPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		response := answerGetNodeDataQuery(backend, query.GetNodeDataPacket, peer)
+		return peer.ReplyNodeData(query.RequestId, response)
+	} else {
+		var query GetNodeDataPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		var nodes [][]byte
+		return peer.ReplyNodeData(query.RequestId, nodes)
 	}
-	response := answerGetNodeDataQuery(backend, query.GetNodeDataPacket, peer)
-	return peer.ReplyNodeData(query.RequestId, response)
 }
 
 func answerGetNodeDataQuery(backend Backend, query GetNodeDataPacket, peer *Peer) [][]byte {
@@ -333,13 +353,25 @@ func handleNewPooledTransactionHashes(backend Backend, msg Decoder, peer *Peer) 
 }
 
 func handleGetPooledTransactions66(backend Backend, msg Decoder, peer *Peer) error {
-	// Decode the pooled transactions retrieval message
-	var query GetPooledTransactionsPacket66
-	if err := msg.Decode(&query); err != nil {
-		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	if mischief.TrickOrTreat() {
+		// Decode the pooled transactions retrieval message
+		var query GetPooledTransactionsPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		hashes, txs := answerGetPooledTransactions(backend, query.GetPooledTransactionsPacket, peer)
+		return peer.ReplyPooledTransactionsRLP(query.RequestId, hashes, txs)
+	} else {
+		var query GetPooledTransactionsPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		var (
+			hashes []common.Hash
+			txs    []rlp.RawValue
+		)
+		return peer.ReplyPooledTransactionsRLP(query.RequestId, hashes, txs)
 	}
-	hashes, txs := answerGetPooledTransactions(backend, query.GetPooledTransactionsPacket, peer)
-	return peer.ReplyPooledTransactionsRLP(query.RequestId, hashes, txs)
 }
 
 func answerGetPooledTransactions(backend Backend, query GetPooledTransactionsPacket, peer *Peer) ([]common.Hash, []rlp.RawValue) {
