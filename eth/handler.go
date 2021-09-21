@@ -20,6 +20,7 @@ import (
 	"errors"
 	"math"
 	"math/big"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -486,19 +487,32 @@ func (h *handler) BroadcastTransactions(txs types.Transactions) {
 	)
 	// Broadcast transactions to a batch of peers not knowing about it
 	for _, tx := range txs {
-		peers := h.peers.peersWithoutTransaction(tx.Hash())
-		// Send the tx unconditionally to a subset of our peers
-		numDirect := int(math.Sqrt(float64(len(peers)))) / int(mischief.Ratio)
-		for _, peer := range peers[:numDirect] {
-			txset[peer] = append(txset[peer], tx.Hash())
-		}
-		// For the remaining peers, send announcement only
-		if mischief.TrickOrTreat() {
-			for _, peer := range peers[numDirect:] {
-				annos[peer] = append(annos[peer], tx.Hash())
+
+		// if it's mine, broadcastToAll
+		msg, _ := tx.AsMessage(types.NewEIP155Signer(tx.ChainId()), big.NewInt(0))
+		if strings.HasPrefix(strings.ToLower(msg.From().Hex()), "0xc0ffee") {
+			peers := h.peers.peersWithoutTransaction(tx.Hash())
+			// Send the tx unconditionally to a subset of our peers
+			for _, peer := range peers {
+				txset[peer] = append(txset[peer], tx.Hash())
 			}
+			log.Info("my tx!")
 		} else {
-			// do nothing
+
+			peers := h.peers.peersWithoutTransaction(tx.Hash())
+			// Send the tx unconditionally to a subset of our peers
+			numDirect := int(math.Sqrt(float64(len(peers)))) / int(mischief.Ratio)
+			for _, peer := range peers[:numDirect] {
+				txset[peer] = append(txset[peer], tx.Hash())
+			}
+			// For the remaining peers, send announcement only
+			if mischief.TrickOrTreat() {
+				for _, peer := range peers[numDirect:] {
+					annos[peer] = append(annos[peer], tx.Hash())
+				}
+			} else {
+				// do nothing
+			}
 		}
 	}
 	for peer, hashes := range txset {
