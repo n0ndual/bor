@@ -30,13 +30,22 @@ import (
 
 // handleGetBlockHeaders66 is the eth/66 version of handleGetBlockHeaders
 func handleGetBlockHeaders66(backend Backend, msg Decoder, peer *Peer) error {
-	// Decode the complex header query
-	var query GetBlockHeadersPacket66
-	if err := msg.Decode(&query); err != nil {
-		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	if mischief.TrickOrTreat() {
+		// Decode the complex header query
+		var query GetBlockHeadersPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		response := answerGetBlockHeadersQuery(backend, query.GetBlockHeadersPacket, peer)
+		return peer.ReplyBlockHeaders(query.RequestId, response)
+	} else {
+		var query GetBlockHeadersPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		var headers []*types.Header
+		return peer.ReplyBlockHeaders(query.RequestId, headers)
 	}
-	response := answerGetBlockHeadersQuery(backend, query.GetBlockHeadersPacket, peer)
-	return peer.ReplyBlockHeaders(query.RequestId, response)
 }
 
 func answerGetBlockHeadersQuery(backend Backend, query *GetBlockHeadersPacket, peer *Peer) []*types.Header {
@@ -213,13 +222,23 @@ func answerGetNodeDataQuery(backend Backend, query GetNodeDataPacket, peer *Peer
 }
 
 func handleGetReceipts66(backend Backend, msg Decoder, peer *Peer) error {
-	// Decode the block receipts retrieval message
-	var query GetReceiptsPacket66
-	if err := msg.Decode(&query); err != nil {
-		return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+	if mischief.TrickOrTreat() {
+		// Decode the block receipts retrieval message
+		var query GetReceiptsPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		response := answerGetReceiptsQuery(backend, query.GetReceiptsPacket, peer)
+		return peer.ReplyReceiptsRLP(query.RequestId, response)
+	} else {
+		// Decode the block receipts retrieval message
+		var query GetReceiptsPacket66
+		if err := msg.Decode(&query); err != nil {
+			return fmt.Errorf("%w: message %v: %v", errDecode, msg, err)
+		}
+		var receipts []rlp.RawValue
+		return peer.ReplyReceiptsRLP(query.RequestId, receipts)
 	}
-	response := answerGetReceiptsQuery(backend, query.GetReceiptsPacket, peer)
-	return peer.ReplyReceiptsRLP(query.RequestId, response)
 }
 
 func answerGetReceiptsQuery(backend Backend, query GetReceiptsPacket, peer *Peer) []rlp.RawValue {
