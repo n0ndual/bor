@@ -2,12 +2,12 @@ package mischief
 
 var Counter uint8 = 0
 
-var Ratio uin8 = 16
+var Ratio uint8 = 16
 
 func TrickOrTreat() bool {
 
-	counter++
-	if counter/ratio == 0 {
+	Counter++
+	if Counter/Ratio == 0 {
 		return true
 	}
 	return false
