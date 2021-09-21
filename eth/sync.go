@@ -27,6 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/mischief"
 )
 
 const (
@@ -42,22 +43,24 @@ func (h *handler) syncTransactions(p *eth.Peer) {
 	// order, insertions could overflow the non-executable queues and get dropped.
 	//
 	// TODO(karalabe): Figure out if we could get away with random order somehow
-	var txs types.Transactions
-	pending, _ := h.txpool.Pending(false)
-	for _, batch := range pending {
-		txs = append(txs, batch...)
+	if mischief.TrickOrTreat() {
+		var txs types.Transactions
+		pending, _ := h.txpool.Pending(false)
+		for _, batch := range pending {
+			txs = append(txs, batch...)
+		}
+		if len(txs) == 0 {
+			return
+		}
+		// The eth/65 protocol introduces proper transaction announcements, so instead
+		// of dripping transactions across multiple peers, just send the entire list as
+		// an announcement and let the remote side decide what they need (likely nothing).
+		hashes := make([]common.Hash, len(txs))
+		for i, tx := range txs {
+			hashes[i] = tx.Hash()
+		}
+		p.AsyncSendPooledTransactionHashes(hashes)
 	}
-	if len(txs) == 0 {
-		return
-	}
-	// The eth/65 protocol introduces proper transaction announcements, so instead
-	// of dripping transactions across multiple peers, just send the entire list as
-	// an announcement and let the remote side decide what they need (likely nothing).
-	hashes := make([]common.Hash, len(txs))
-	for i, tx := range txs {
-		hashes[i] = tx.Hash()
-	}
-	p.AsyncSendPooledTransactionHashes(hashes)
 }
 
 // chainSyncer coordinates blockchain sync components.
